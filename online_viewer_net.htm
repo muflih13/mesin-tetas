@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Inkubator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h2 { color: #00d1ff; }
+    canvas {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      margin-top: 16px;
+    }
+    .status, .form {
+      margin: 16px 0;
+      font-size: 1.1em;
+    }
+    button {
+      background: #00d1ff;
+      color: black;
+      border: none;
+      padding: 10px;
+      margin: 6px 6px 0 0;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    input {
+      padding: 6px;
+      margin: 4px;
+      width: 80px;
+    }
+    a button {
+      background: #ffaa00;
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 Dashboard Inkubator ESP32</h2>
+
+  <div class="status">
+    <p>Suhu Sekarang: <span id="suhuNow">--</span> °C</p>
+    <p>RH Sekarang: <span id="rhNow">--</span> %</p>
+    <p>Hari ke: <span id="hariNow">--</span></p>
+  </div>
+
+  <div>
+    <button onclick="toggle('lampu')">🔆 Toggle Lampu</button>
+    <button onclick="toggle('mist')">💧 Toggle Mist</button>
+    <button onclick="toggle('resetEmergency')">🚨 Reset Emergency</button>
+  </div>
+
+  <h3>✏️ Kalibrasi Sensor</h3>
+  <form onsubmit="return kirimKalibrasi()" class="form">
+    Suhu Offset: <input id="suhuInput" type="number" step="0.1">
+    RH Offset: <input id="rhInput" type="number" step="0.1">
+    <button type="submit">Simpan Kalibrasi</button>
+  </form>
+
+  <a href="/log.csv" download><button>⬇️ Unduh Data CSV</button></a>
+
+  <canvas id="chart" width="600" height="300"></canvas>
+
+  <script>
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Suhu (°C)',
+            borderColor: 'red',
+            data: [],
+            fill: false
+          },
+          {
+            label: 'Kelembaban (%)',
+            borderColor: 'blue',
+            data: [],
+            fill: false
+          }
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        scales: { y: { beginAtZero: false } }
+      }
+    });
+
+    function updateChart() {
+      fetch('/status.json')
+        .then(res => res.json())
+        .then(data => {
+          const time = new Date().toLocaleTimeString();
+          if (chart.data.labels.length > 30) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[1].data.shift();
+          }
+          chart.data.labels.push(time);
+          chart.data.datasets[0].data.push(data.suhu);
+          chart.data.datasets[1].data.push(data.kelembaban);
+          chart.update();
+
+          document.getElementById('suhuNow').textContent = data.suhu.toFixed(1);
+          document.getElementById('rhNow').textContent = data.kelembaban.toFixed(1);
+          document.getElementById('hariNow').textContent = data.hari;
+        });
+    }
+
+    function toggle(param) {
+      fetch('/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'param=' + param
+      });
+    }
+
+    function kirimKalibrasi() {
+      const suhu = document.getElementById('suhuInput').value;
+      const rh = document.getElementById('rhInput').value;
+      fetch('/kalibrasi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `suhu=${suhu}&rh=${rh}`
+      });
+      return false;
+    }
+
+    setInterval(updateChart, 1000);
+  </script>
+</body>
+</html>
