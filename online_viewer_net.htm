@@ -95,7 +95,7 @@
     });
 
     function updateChart() {
-      fetch('/status.json')
+      fetch('http://192.168.1.200/status.json')
         .then(res => res.json())
         .then(data => {
           const time = new Date().toLocaleTimeString();
